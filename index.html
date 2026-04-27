@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>作业清点助手 · 科目与日期记录版</title>
+    <style>
+        :root {
+            --primary: #4A6CF7;
+            --primary-light: #EEF1FE;
+            --success: #10B981;
+            --success-light: #ECFDF5;
+            --danger: #EF4444;
+            --danger-light: #FEF2F2;
+            --warning: #F59E0B;
+            --warning-light: #FFFBEB;
+            --bg: #F5F7FA;
+            --card-bg: #FFFFFF;
+            --text: #1E293B;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --border: #E2E8F0;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 25px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.05);
+            --radius-sm: 8px;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: 0.2s ease;
+            --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', 'Menlo', monospace;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height:100vh;
+            line-height:1.6;
+            -webkit-font-smoothing:antialiased;
+            -webkit-tap-highlight-color:transparent;
+            user-select:none;
+        }
+        .container { max-width:800px; margin:0 auto; padding:16px; min-height:100vh; display:flex; flex-direction:column; }
+
+        /* 头部 */
+        .header { text-align:center; padding:20px 0 12px; }
+        .header .icon-row { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:4px; }
+        .header .logo-icon { width:42px; height:42px; background:var(--primary); border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; font-size:22px; color:#fff; box-shadow:0 4px 12px rgba(74,108,247,0.3); }
+        .header h1 { font-size:1.5rem; font-weight:700; letter-spacing:-0.02em; }
+        .header .subtitle { font-size:0.85rem; color:var(--text-secondary); margin-top:2px; }
+
+        /* 折叠面板通用 */
+        .collapsible-panel { background:var(--card-bg); border-radius:var(--radius-lg); box-shadow:var(--shadow); border:1px solid var(--border); margin-bottom:12px; overflow:hidden; }
+        .panel-toggle { padding:14px 16px; font-weight:700; font-size:0.9rem; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:var(--card-bg); border:none; width:100%; color:var(--text); letter-spacing:0.01em; }
+        .panel-toggle .arrow { transition:transform 0.25s ease; font-size:0.8rem; }
+        .panel-toggle.open .arrow { transform:rotate(180deg); }
+        .panel-content { display:none; padding:0 16px 16px; }
+        .panel-content.open { display:block; }
+
+        /* 作业信息卡片 */
+        .hw-form { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+        .hw-form .field { flex:1 1 160px; display:flex; flex-direction:column; gap:4px; }
+        .hw-form label { font-size:0.75rem; font-weight:600; color:var(--text-secondary); }
+        .hw-form input, .hw-form textarea {
+            padding:10px 12px; border:1.5px solid var(--border); border-radius:var(--radius-sm);
+            font-size:0.9rem; font-family:inherit; background:var(--bg); outline:none;
+            transition:border-color var(--transition);
+        }
+        .hw-form input:focus, .hw-form textarea:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(74,108,247,0.08); background:#fff; }
+        .hw-form textarea { resize:vertical; min-height:38px; }
+        .btn-sm {
+            padding:8px 16px; border-radius:var(--radius-sm); font-weight:600; font-size:0.8rem;
+            border:1.5px solid var(--primary); background:var(--primary); color:#fff;
+            cursor:pointer; transition:all var(--transition); white-space:nowrap;
+            display:flex; align-items:center; gap:4px; justify-content:center;
+        }
+        .btn-sm:hover { background:#3b5de7; }
+        .btn-sm.outline { background:transparent; color:var(--primary); border-color:var(--primary); }
+        .btn-sm.outline:hover { background:var(--primary-light); }
+        .current-hw-badge {
+            font-size:0.78rem; background:var(--primary-light); color:var(--primary);
+            padding:4px 10px; border-radius:20px; font-weight:600; margin-left:8px;
+        }
+
+        /* 统计栏 */
+        .stats-bar { display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+        .stat-card { flex:1; min-width:70px; background:var(--card-bg); border-radius:var(--radius); padding:14px 12px; text-align:center; box-shadow:var(--shadow-sm); border:1px solid var(--border); }
+        .stat-card .stat-number { font-size:1.7rem; font-weight:700; line-height:1.2; }
+        .stat-card .stat-label { font-size:0.72rem; color:var(--text-secondary); margin-top:4px; }
+        .stat-card.total .stat-number { color:var(--primary); }
+        .stat-card.done .stat-number { color:var(--success); }
+        .stat-card.remaining .stat-number { color:var(--danger); }
+        .stat-card.remaining.has-remaining { animation: pulse-remaining 2s ease-in-out infinite; }
+        @keyframes pulse-remaining {
+            0%,100% { border-color:var(--border); }
+            50% { border-color:var(--danger); box-shadow:0 0 0 4px rgba(239,68,68,0.06); }
+        }
+
+        /* 搜索区 */
+        .search-section { background:var(--card-bg); border-radius:var(--radius-lg); padding:14px 16px; box-shadow:var(--shadow); border:1px solid var(--border); margin-bottom:12px; }
+        .search-label { font-size:0.82rem; font-weight:600; color:var(--text-secondary); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+        .search-label .dot { width:7px; height:7px; border-radius:50%; background:var(--primary); display:inline-block; }
+        .search-input-wrapper { position:relative; }
+        .search-input { width:100%; padding:12px 40px 12px 14px; font-size:1rem; border:2px solid var(--border); border-radius:var(--radius); background:var(--bg); outline:none; transition:all var(--transition); }
+        .search-input:focus { border-color:var(--primary); box-shadow:0 0 0 4px rgba(74,108,247,0.08); background:#fff; }
+        .search-icon { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:1.1rem; color:var(--text-muted); pointer-events:none; }
+        .search-hint { font-size:0.7rem; color:var(--text-muted); margin-top:6px; display:flex; gap:8px; flex-wrap:wrap; }
+        .search-hint span { background:var(--bg); padding:2px 7px; border-radius:4px; font-family:var(--font-mono); font-size:0.68rem; }
+
+        .match-results { margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; max-height:200px; overflow-y:auto; }
+        .match-item { display:flex; align-items:center; gap:8px; padding:8px 14px; background:var(--bg); border:1.5px solid var(--border); border-radius:var(--radius-sm); cursor:pointer; transition:all var(--transition); font-weight:500; }
+        .match-item:hover { border-color:var(--primary); background:var(--primary-light); transform:translateY(-1px); }
+        .match-item:active { transform:scale(0.97); }
+        .match-item .match-name { font-weight:600; }
+        .match-item .match-id { font-size:0.7rem; color:var(--text-muted); }
+        .match-item .match-badge { font-size:0.68rem; padding:3px 8px; border-radius:20px; font-weight:600; }
+        .badge-done { background:var(--success-light); color:var(--success); }
+        .badge-pending { background:var(--warning-light); color:var(--warning); }
+
+        .lists-section { display:flex; gap:12px; flex:1; min-height:0; }
+        @media (max-width:640px) { .lists-section { flex-direction:column; } }
+        .list-panel { flex:1; background:var(--card-bg); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); border:1px solid var(--border); display:flex; flex-direction:column; min-height:180px; max-height:400px; overflow:hidden; }
+        .list-panel-header { padding:12px 16px; border-bottom:1px solid var(--border); font-weight:700; font-size:0.85rem; display:flex; justify-content:space-between; }
+        .list-panel-body { overflow-y:auto; flex:1; padding:6px; }
+        .list-student-item { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-radius:var(--radius-sm); margin-bottom:2px; cursor:pointer; }
+        .list-student-item:hover { background:var(--bg); }
+        .student-info { display:flex; align-items:center; gap:8px; }
+        .student-avatar { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.7rem; }
+        .done-list .student-avatar { background:var(--success-light); color:var(--success); }
+        .remaining-list .student-avatar { background:var(--danger-light); color:var(--danger); }
+        .remove-btn { background:none; border:none; font-size:1rem; cursor:pointer; color:var(--text-muted); padding:4px; }
+
+        .actions-row { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; justify-content:center; }
+        .btn { padding:10px 18px; border-radius:var(--radius-sm); font-weight:600; font-size:0.82rem; border:1.5px solid var(--border); cursor:pointer; transition:all var(--transition); background:var(--card-bg); display:flex; align-items:center; gap:6px; }
+        .btn:hover { box-shadow:var(--shadow-md); }
+        .btn:active { transform:scale(0.96); }
+
+        /* 历史作业列表 */
+        .history-list { display:flex; flex-direction:column; gap:8px; }
+        .history-item { background:var(--bg); border-radius:var(--radius-sm); padding:10px 14px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+        .history-item .hw-summary { font-size:0.85rem; }
+        .history-item .hw-date { font-size:0.7rem; color:var(--text-muted); }
+        .history-item .hw-stats { font-size:0.75rem; }
+
+        .toast-container { position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:999; display:flex; flex-direction:column; gap:8px; pointer-events:none; width:90%; max-width:400px; }
+        .toast { padding:10px 18px; border-radius:var(--radius-sm); font-weight:600; font-size:0.85rem; text-align:center; animation:toastIn 0.35s ease, toastOut 0.3s ease 1.6s forwards; box-shadow:var(--shadow-lg); }
+        .toast-success { background:#059669; color:#fff; }
+        .toast-warning { background:#d97706; color:#fff; }
+        .toast-info { background:var(--primary); color:#fff; }
+        @keyframes toastIn { from{opacity:0;transform:translateY(-20px);} to{opacity:1;transform:translateY(0);} }
+        @keyframes toastOut { from{opacity:1;transform:translateY(0);} to{opacity:0;transform:translateY(-15px);} }
+
+        .footer { text-align:center; padding:10px; color:var(--text-muted); font-size:0.7rem; margin-top:auto; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="icon-row">
+            <div class="logo-icon">📋</div>
+            <h1>作业清点助手</h1>
+        </div>
+        <p class="subtitle">设置作业 · 快速标记 · 记录存档</p>
+    </div>
+
+    <!-- 作业信息设置面板 -->
+    <div class="collapsible-panel" id="hwSettingPanel">
+        <button class="panel-toggle open" id="hwToggleBtn">
+            📝 当前作业信息 <span class="arrow">▼</span>
+        </button>
+        <div class="panel-content open" id="hwSettingContent">
+            <div class="hw-form">
+                <div class="field">
+                    <label>科目</label>
+                    <input type="text" id="hwSubject" placeholder="例如：高等数学、英语读写">
+                </div>
+                <div class="field">
+                    <label>截止日期</label>
+                    <input type="date" id="hwDeadline">
+                </div>
+                <div class="field" style="flex:2 1 200px;">
+                    <label>作业内容</label>
+                    <textarea id="hwContent" rows="1" placeholder="例如：课后习题2-5、小论文提交"></textarea>
+                </div>
+                <div style="display:flex; gap:6px; align-items:flex-end;">
+                    <button class="btn-sm" id="btnSaveHw">💾 保存作业</button>
+                    <button class="btn-sm outline" id="btnNewHw">➕ 新建作业</button>
+                </div>
+            </div>
+            <div style="margin-top:8px; font-size:0.78rem; color:var(--text-muted);">
+                ⚡ 设置作业信息后，所有已交标记将关联到此作业。
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计栏 -->
+    <div class="stats-bar">
+        <div class="stat-card total"><div class="stat-number" id="statTotal">30</div><div class="stat-label">全班人数</div></div>
+        <div class="stat-card done"><div class="stat-number" id="statDone">0</div><div class="stat-label">✅ 已交</div></div>
+        <div class="stat-card remaining"><div class="stat-number" id="statRemaining">30</div><div class="stat-label">⚠️ 未交</div></div>
+    </div>
+
+    <!-- 搜索 -->
+    <div class="search-section" id="searchSection">
+        <div class="search-label"><span class="dot"></span> 搜索学生</div>
+        <div class="search-input-wrapper">
+            <input class="search-input" id="searchInput" placeholder="缩写如 lrj 或后4位 2105" autocomplete="off">
+            <span class="search-icon">🔍</span>
+        </div>
+        <div class="search-hint"><span>lrj</span><span>gr</span><span>2105</span></div>
+        <div class="match-results" id="matchResults"></div>
+    </div>
+
+    <!-- 已交/未交列表 -->
+    <div class="lists-section">
+        <div class="list-panel done-list">
+            <div class="list-panel-header">✅ 已交 <span id="doneCountTag">0人</span></div>
+            <div class="list-panel-body" id="doneList"></div>
+        </div>
+        <div class="list-panel remaining-list">
+            <div class="list-panel-header">⚠️ 未交 <span id="remainingCountTag">30人</span></div>
+            <div class="list-panel-body" id="remainingList"></div>
+        </div>
+    </div>
+
+    <div class="actions-row">
+        <button class="btn" id="btnMarkAll">✅ 全部标记已交</button>
+        <button class="btn" id="btnCopy">📋 复制未交名单</button>
+        <button class="btn" id="btnReset" style="border-color:#fca5a5; color:#dc2626;">🔄 重置当前</button>
+    </div>
+
+    <!-- 历史作业面板 -->
+    <div class="collapsible-panel" style="margin-top:12px;">
+        <button class="panel-toggle" id="historyToggleBtn">
+            📚 历史作业记录 <span class="arrow">▼</span>
+        </button>
+        <div class="panel-content" id="historyContent">
+            <div class="history-list" id="historyList">
+                <div style="text-align:center; color:var(--text-muted); padding:20px;">暂无历史记录</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">数据自动保存至本地 · 适合 GitHub Pages</div>
+</div>
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+    (function() {
+        // ---------- 学生数据 ----------
+        const studentsData = [
+            { id:'U202512105', name:'梁仁荣', abbr:'lrj', last4:'2105' },
+            { id:'U202513469', name:'段景钊', abbr:'djz', last4:'3469' },
+            { id:'U202513770', name:'谢宇轩', abbr:'xyx', last4:'3770' },
+            { id:'U202513777', name:'张朴诚', abbr:'zpc', last4:'3777' },
+            { id:'U202513813', name:'毕心蕾', abbr:'bxl', last4:'3813' },
+            { id:'U202513814', name:'程家轩', abbr:'cjx', last4:'3814' },
+            { id:'U202513815', name:'郭然', abbr:'gr', last4:'3815' },
+            { id:'U202513816', name:'瞿钰堾', abbr:'qyc', last4:'3816' },
+            { id:'U202513817', name:'李东泽', abbr:'ldz', last4:'3817' },
+            { id:'U202513818', name:'李鎏', abbr:'ll', last4:'3818' },
+            { id:'U202513819', name:'梁塬', abbr:'ly', last4:'3819' },
+            { id:'U202513820', name:'梁哲恺', abbr:'lzk', last4:'3820' },
+            { id:'U202513821', name:'刘钰泽', abbr:'lyz', last4:'3821' },
+            { id:'U202513822', name:'潘龙广', abbr:'plg', last4:'3822' },
+            { id:'U202513823', name:'彭文杰', abbr:'pwj', last4:'3823' },
+            { id:'U202513824', name:'邱域恒', abbr:'qyh', last4:'3824' },
+            { id:'U202513825', name:'舒皓阳', abbr:'shy', last4:'3825' },
+            { id:'U202513826', name:'孙霖', abbr:'sl', last4:'3826' },
+            { id:'U202513827', name:'唐慧玲', abbr:'thl', last4:'3827' },
+            { id:'U202513828', name:'唐思怡', abbr:'tsy', last4:'3828' },
+            { id:'U202513829', name:'童俊皓', abbr:'tjh', last4:'3829' },
+            { id:'U202513830', name:'王涵俊', abbr:'whj', last4:'3830' },
+            { id:'U202513831', name:'王森田', abbr:'wst', last4:'3831' },
+            { id:'U202513832', name:'王馨梓', abbr:'wxz', last4:'3832' },
+            { id:'U202513833', name:'夏家豪', abbr:'xjh', last4:'3833' },
+            { id:'U202513834', name:'余秋宸', abbr:'yqc', last4:'3834' },
+            { id:'U202513835', name:'张昊宇', abbr:'zhy', last4:'3835' },
+            { id:'U202513836', name:'张善喆', abbr:'zsz', last4:'3836' },
+            { id:'U202513837', name:'周夕媛', abbr:'zxy', last4:'3837' },
+            { id:'U202513838', name:'周奕含', abbr:'zyh', last4:'3838' }
+        ];
+        const totalCount = studentsData.length;
+        const studentMap = {};
+        studentsData.forEach(s => studentMap[s.id]=s);
+
+        // ---------- 数据存储结构 ----------
+        const STORAGE_KEY_CURRENT = 'hw_current_homework';
+        const STORAGE_KEY_HISTORY = 'hw_history_records';
+
+        // 当前作业对象: { id, subject, content, deadline, doneIds: [] }
+        let currentHomework = null;
+        // 历史作业数组
+        let historyRecords = [];
+
+        function generateId() { return 'hw_' + Date.now() + '_' + Math.random().toString(36).substr(2,6); }
+
+        function loadState() {
+            // 加载当前作业
+            try {
+                const cur = localStorage.getItem(STORAGE_KEY_CURRENT);
+                if (cur) {
+                    currentHomework = JSON.parse(cur);
+                }
+            } catch(e){ currentHomework = null; }
+            // 加载历史
+            try {
+                const his = localStorage.getItem(STORAGE_KEY_HISTORY);
+                if (his) {
+                    historyRecords = JSON.parse(his);
+                }
+            } catch(e){ historyRecords = []; }
+            // 如果没有当前作业，创建一个默认的
+            if (!currentHomework) {
+                currentHomework = {
+                    id: generateId(),
+                    subject: '',
+                    content: '',
+                    deadline: '',
+                    doneIds: []
+                };
+                saveCurrentHomework();
+            }
+            // 确保 doneIds 是数组
+            if (!Array.isArray(currentHomework.doneIds)) currentHomework.doneIds = [];
+            // 清除已不存在的学生id
+            currentHomework.doneIds = currentHomework.doneIds.filter(id => studentMap[id]);
+        }
+
+        function saveCurrentHomework() {
+            try {
+                localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(currentHomework));
+            } catch(e){ showToast('保存失败，可能存储空间不足','warning'); }
+        }
+
+        function saveHistory() {
+            try {
+                localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(historyRecords));
+            } catch(e){}
+        }
+
+        // 归档当前作业到历史
+        function archiveCurrentHomework() {
+            if (currentHomework && (currentHomework.subject || currentHomework.content || currentHomework.doneIds.length>0)) {
+                const record = { ...currentHomework, archivedAt: new Date().toISOString() };
+                historyRecords.unshift(record);
+                if (historyRecords.length > 50) historyRecords.pop(); // 最多保留50条
+                saveHistory();
+            }
+        }
+
+        // 新建作业（重置当前）
+        function createNewHomework() {
+            archiveCurrentHomework();
+            currentHomework = {
+                id: generateId(),
+                subject: '',
+                content: '',
+                deadline: '',
+                doneIds: []
+            };
+            saveCurrentHomework();
+            renderAll();
+            populateHwForm();
+            showToast('已创建新作业，开始清点吧','info');
+        }
+
+        // 标记/撤销
+        function markDone(studentId) {
+            if (!currentHomework.doneIds.includes(studentId)) {
+                currentHomework.doneIds.push(studentId);
+                saveCurrentHomework();
+                return true;
+            }
+            return false;
+        }
+        function unmarkDone(studentId) {
+            const idx = currentHomework.doneIds.indexOf(studentId);
+            if (idx > -1) {
+                currentHomework.doneIds.splice(idx,1);
+                saveCurrentHomework();
+                return true;
+            }
+            return false;
+        }
+
+        function getDoneSet() { return new Set(currentHomework.doneIds); }
+        function getRemainingStudents() { return studentsData.filter(s => !getDoneSet().has(s.id)); }
+        function getDoneStudents() { return studentsData.filter(s => getDoneSet().has(s.id)); }
+
+        // ---------- DOM 引用 ----------
+        const searchInput = document.getElementById('searchInput');
+        const matchResults = document.getElementById('matchResults');
+        const doneList = document.getElementById('doneList');
+        const remainingList = document.getElementById('remainingList');
+        const statTotal = document.getElementById('statTotal');
+        const statDone = document.getElementById('statDone');
+        const statRemaining = document.getElementById('statRemaining');
+        const doneCountTag = document.getElementById('doneCountTag');
+        const remainingCountTag = document.getElementById('remainingCountTag');
+        const toastContainer = document.getElementById('toastContainer');
+        const btnMarkAll = document.getElementById('btnMarkAll');
+        const btnCopy = document.getElementById('btnCopy');
+        const btnReset = document.getElementById('btnReset');
+        const hwSubject = document.getElementById('hwSubject');
+        const hwContent = document.getElementById('hwContent');
+        const hwDeadline = document.getElementById('hwDeadline');
+        const btnSaveHw = document.getElementById('btnSaveHw');
+        const btnNewHw = document.getElementById('btnNewHw');
+        const historyList = document.getElementById('historyList');
+        const searchSection = document.getElementById('searchSection');
+
+        // 折叠面板
+        function setupCollapsible(btnId, contentId) {
+            const btn = document.getElementById(btnId);
+            const content = document.getElementById(contentId);
+            btn.addEventListener('click', () => {
+                const isOpen = content.classList.contains('open');
+                if (isOpen) {
+                    content.classList.remove('open');
+                    btn.classList.remove('open');
+                } else {
+                    content.classList.add('open');
+                    btn.classList.add('open');
+                }
+            });
+        }
+        setupCollapsible('hwToggleBtn', 'hwSettingContent');
+        setupCollapsible('historyToggleBtn', 'historyContent');
+
+        function populateHwForm() {
+            hwSubject.value = currentHomework.subject || '';
+            hwContent.value = currentHomework.content || '';
+            hwDeadline.value = currentHomework.deadline || '';
+        }
+
+        function renderAll() {
+            renderStats();
+            renderDoneList();
+            renderRemainingList();
+            renderMatchResults();
+            renderHistoryList();
+        }
+
+        function renderStats() {
+            const done = currentHomework.doneIds.length;
+            const remaining = totalCount - done;
+            statTotal.textContent = totalCount;
+            statDone.textContent = done;
+            statRemaining.textContent = remaining;
+            doneCountTag.textContent = done + '人';
+            remainingCountTag.textContent = remaining + '人';
+            const card = document.querySelector('.stat-card.remaining');
+            if (remaining === 0) card.classList.remove('has-remaining');
+            else card.classList.add('has-remaining');
+        }
+
+        function renderDoneList() {
+            const doneStuds = getDoneStudents();
+            if (doneStuds.length===0) {
+                doneList.innerHTML = '<div class="empty-list" style="text-align:center;color:var(--text-muted);padding:20px;">📭 暂无</div>';
+            } else {
+                doneList.innerHTML = doneStuds.map(s => `
+                    <div class="list-student-item" data-id="${s.id}">
+                        <div class="student-info"><div class="student-avatar">${s.abbr.toUpperCase()}</div><div><strong>${s.name}</strong><div style="font-size:0.7rem;color:var(--text-muted);">${s.id}</div></div></div>
+                        <button class="remove-btn" data-action="remove" data-id="${s.id}">✕</button>
+                    </div>`).join('');
+            }
+        }
+
+        function renderRemainingList() {
+            const rem = getRemainingStudents();
+            if (rem.length===0) {
+                remainingList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--success);font-weight:700;">🎉 全部已交！</div>';
+            } else {
+                remainingList.innerHTML = rem.map(s => `
+                    <div class="list-student-item" data-id="${s.id}">
+                        <div class="student-info"><div class="student-avatar">${s.abbr.toUpperCase()}</div><div><strong>${s.name}</strong><div style="font-size:0.7rem;color:var(--text-muted);">${s.id}</div></div></div>
+                        <span style="font-size:0.7rem;color:var(--text-muted);">未交</span>
+                    </div>`).join('');
+            }
+        }
+
+        function renderMatchResults() {
+            const q = searchInput.value.trim();
+            if (!q) { matchResults.innerHTML = ''; btnMarkAll.style.display='none'; return; }
+            const matches = searchStudents(q);
+            if (matches.length===0) {
+                matchResults.innerHTML = '<div class="no-match" style="padding:8px;color:var(--text-muted);">未找到</div>';
+                btnMarkAll.style.display='none';
+            } else {
+                const doneSet = getDoneSet();
+                const hasUnmarked = matches.some(s => !doneSet.has(s.id));
+                btnMarkAll.style.display = hasUnmarked ? 'flex' : 'none';
+                matchResults.innerHTML = matches.map(s => {
+                    const isDone = doneSet.has(s.id);
+                    return `<div class="match-item ${isDone?'already-done':''}" data-id="${s.id}">
+                        <span class="match-name">${s.name}</span>
+                        <span class="match-id">${s.id}·${s.last4}</span>
+                        <span class="match-badge ${isDone?'badge-done':'badge-pending'}">${isDone?'已交':'未交'}</span>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        function renderHistoryList() {
+            if (historyRecords.length===0) {
+                historyList.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;">暂无历史记录</div>';
+                return;
+            }
+            historyList.innerHTML = historyRecords.map((rec, idx) => {
+                const doneCount = rec.doneIds ? rec.doneIds.length : 0;
+                const subject = rec.subject || '未命名科目';
+                const content = rec.content || '无内容';
+                const deadline = rec.deadline || '未设截止';
+                const dateStr = rec.archivedAt ? new Date(rec.archivedAt).toLocaleString('zh-CN') : '';
+                return `<div class="history-item">
+                    <div>
+                        <div class="hw-summary"><strong>${escapeHtml(subject)}</strong> · ${escapeHtml(content)}</div>
+                        <div class="hw-date">📅 ${deadline} ｜ 归档于 ${dateStr}</div>
+                        <div class="hw-stats">✅已交 ${doneCount}/${totalCount} 人</div>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-sm outline history-load" data-idx="${idx}">📂 加载</button>
+                        <button class="btn-sm outline history-delete" data-idx="${idx}" style="color:#dc2626;border-color:#fca5a5;">🗑</button>
+                    </div>
+                </div>`;
+            }).join('');
+            // 绑定事件
+            document.querySelectorAll('.history-load').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    const idx = parseInt(this.dataset.idx);
+                    loadHistoryRecord(idx);
+                });
+            });
+            document.querySelectorAll('.history-delete').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    const idx = parseInt(this.dataset.idx);
+                    deleteHistoryRecord(idx);
+                });
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function loadHistoryRecord(idx) {
+            if (idx < 0 || idx >= historyRecords.length) return;
+            if (currentHomework.doneIds.length > 0 && !confirm('加载历史作业将覆盖当前已交标记，确定继续吗？')) return;
+            archiveCurrentHomework();
+            const rec = historyRecords[idx];
+            currentHomework = {
+                id: rec.id || generateId(),
+                subject: rec.subject,
+                content: rec.content,
+                deadline: rec.deadline,
+                doneIds: Array.isArray(rec.doneIds) ? [...rec.doneIds] : []
+            };
+            saveCurrentHomework();
+            renderAll();
+            populateHwForm();
+            showToast('已加载历史作业：' + (rec.subject || '未命名'), 'info');
+        }
+
+        function deleteHistoryRecord(idx) {
+            if (idx < 0 || idx >= historyRecords.length) return;
+            if (!confirm('确定删除这条历史记录吗？')) return;
+            historyRecords.splice(idx, 1);
+            saveHistory();
+            renderHistoryList();
+            showToast('已删除历史记录','warning');
+        }
+
+        function searchStudents(query) {
+            query = query.trim().toLowerCase();
+            if (!query) return [];
+            if (/^\d+$/.test(query)) {
+                return studentsData.filter(s => s.last4.includes(query));
+            } else {
+                return studentsData.filter(s => s.abbr.includes(query));
+            }
+        }
+
+        function handleStudentClick(studentId) {
+            const s = studentMap[studentId];
+            if (!s) return;
+            const doneSet = getDoneSet();
+            if (doneSet.has(studentId)) {
+                if (unmarkDone(studentId)) {
+                    showToast(`已撤销：${s.name}`, 'warning');
+                    renderAll();
+                    if (searchInput.value.trim()) renderMatchResults();
+                }
+            } else {
+                if (markDone(studentId)) {
+                    showToast(`✅ 已标记：${s.name}`, 'success');
+                    renderAll();
+                    if (searchInput.value.trim()) renderMatchResults();
+                    searchInput.value = '';
+                    renderMatchResults();
+                    searchInput.focus();
+                    if (currentHomework.doneIds.length === totalCount) {
+                        setTimeout(() => showToast('🎉 全班作业已清点完毕！','success'), 400);
+                    }
+                }
+            }
+        }
+
+        // 事件绑定
+        searchInput.addEventListener('input', renderMatchResults);
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const matches = searchStudents(searchInput.value.trim());
+                if (matches.length === 1) handleStudentClick(matches[0].id);
+                else if (matches.length > 1) {
+                    const firstUnmarked = matches.find(s => !getDoneSet().has(s.id));
+                    if (firstUnmarked) handleStudentClick(firstUnmarked.id);
+                }
+            }
+            if (e.key === 'Escape') { searchInput.value=''; renderMatchResults(); }
+        });
+
+        matchResults.addEventListener('click', e => {
+            const item = e.target.closest('.match-item');
+            if (item) handleStudentClick(item.dataset.id);
+        });
+        doneList.addEventListener('click', e => {
+            const btn = e.target.closest('[data-action="remove"]');
+            if (btn) { handleStudentClick(btn.dataset.id); return; }
+            const item = e.target.closest('.list-student-item');
+            if (item && !btn) handleStudentClick(item.dataset.id);
+        });
+        remainingList.addEventListener('click', e => {
+            const item = e.target.closest('.list-student-item');
+            if (item) handleStudentClick(item.dataset.id);
+        });
+
+        btnMarkAll.addEventListener('click', () => {
+            const q = searchInput.value.trim();
+            if (!q) return showToast('请先输入搜索内容','info');
+            const matches = searchStudents(q);
+            const unmarked = matches.filter(s => !getDoneSet().has(s.id));
+            if (unmarked.length===0) return showToast('搜索结果中均已交','info');
+            unmarked.forEach(s => markDone(s.id));
+            saveCurrentHomework();
+            renderAll();
+            searchInput.value = '';
+            renderMatchResults();
+            showToast(`✅ 批量标记了 ${unmarked.length} 人`,'success');
+            if (currentHomework.doneIds.length === totalCount) showToast('🎉 全班已清点完毕！','success');
+        });
+
+        btnCopy.addEventListener('click', () => {
+            const rem = getRemainingStudents();
+            if (rem.length===0) return showToast('全部已交','info');
+            const text = rem.map(s => `${s.name}（${s.id}）`).join('\n');
+            const subj = currentHomework.subject || '未命名';
+            const summary = `【${subj}】未交名单 (${new Date().toLocaleDateString()})\n共 ${rem.length} 人\n---\n${text}`;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(summary).then(() => showToast('已复制未交名单','info'));
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = summary;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('已复制','info');
+            }
+        });
+
+        btnReset.addEventListener('click', () => {
+            if (currentHomework.doneIds.length===0) return showToast('暂无已交记录','info');
+            if (confirm('确定重置当前作业的全部已交标记吗？')) {
+                currentHomework.doneIds = [];
+                saveCurrentHomework();
+                renderAll();
+                searchInput.value = '';
+                renderMatchResults();
+                showToast('已重置当前作业标记','warning');
+            }
+        });
+
+        btnSaveHw.addEventListener('click', () => {
+            currentHomework.subject = hwSubject.value.trim();
+            currentHomework.content = hwContent.value.trim();
+            currentHomework.deadline = hwDeadline.value;
+            saveCurrentHomework();
+            showToast('作业信息已保存','success');
+        });
+
+        btnNewHw.addEventListener('click', () => {
+            if (currentHomework.doneIds.length > 0 && !confirm('新建作业将归档当前作业，已交标记不会丢失。确定吗？')) return;
+            createNewHomework();
+        });
+
+        // 快捷键
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey && e.key==='k') || (e.key==='/' && document.activeElement!==searchInput)) {
+                e.preventDefault();
+                searchInput.focus();
+                searchInput.select();
+            }
+        });
+
+        // 初始化
+        function init() {
+            loadState();
+            statTotal.textContent = totalCount;
+            populateHwForm();
+            renderAll();
+            searchInput.focus();
+            btnMarkAll.style.display = 'none';
+        }
+
+        function showToast(msg, type='info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = msg;
+            toastContainer.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        init();
+    })();
+</script>
+</body>
+</html>
